@@ -47,12 +47,14 @@ names, are the renaming of some prefixes, like ``celery_beat_`` to ``beat_``,
 ``celeryd_`` to ``worker_``, and most of the top level ``celery_`` settings
 have been moved into a new  ``task_`` prefix.
 
-.. note::
+.. warning::
 
-    Celery will still be able to read old configuration files, so
-    there's no rush in moving to the new settings format. Furthermore,
-    we provide the ``celery upgrade`` command that should handle plenty
-    of cases (including :ref:`Django <latentcall-django-admonition>`).
+    Celery will still be able to read old configuration files until Celery 6.0.
+    Afterwards, support for the old configuration files will be removed.
+    We provide the ``celery upgrade`` command that should handle
+    plenty of cases (including :ref:`Django <latentcall-django-admonition>`).
+
+    Please migrate to the new configuration scheme as soon as possible.
 
 
 ========================================== ==============================================
@@ -105,6 +107,7 @@ have been moved into a new  ``task_`` prefix.
 ``CELERY_REDIS_DB``                        :setting:`redis_db`
 ``CELERY_REDIS_HOST``                      :setting:`redis_host`
 ``CELERY_REDIS_MAX_CONNECTIONS``           :setting:`redis_max_connections`
+``CELERY_REDIS_USERNAME``                  :setting:`redis_username`
 ``CELERY_REDIS_PASSWORD``                  :setting:`redis_password`
 ``CELERY_REDIS_PORT``                      :setting:`redis_port`
 ``CELERY_REDIS_BACKEND_USE_SSL``           :setting:`redis_backend_use_ssl`
@@ -123,29 +126,32 @@ have been moved into a new  ``task_`` prefix.
 ``CELERY_SECURITY_CERTIFICATE``            :setting:`security_certificate`
 ``CELERY_SECURITY_CERT_STORE``             :setting:`security_cert_store`
 ``CELERY_SECURITY_KEY``                    :setting:`security_key`
-``CELERY_ACKS_LATE``                  :setting:`task_acks_late`
-``CELERY_ACKS_ON_FAILURE_OR_TIMEOUT`` :setting:`task_acks_on_failure_or_timeout`
-``CELERY_ALWAYS_EAGER``               :setting:`task_always_eager`
-``CELERY_ANNOTATIONS``                :setting:`task_annotations`
-``CELERY_COMPRESSION``                :setting:`task_compression`
-``CELERY_CREATE_MISSING_QUEUES``      :setting:`task_create_missing_queues`
-``CELERY_DEFAULT_DELIVERY_MODE``      :setting:`task_default_delivery_mode`
-``CELERY_DEFAULT_EXCHANGE``           :setting:`task_default_exchange`
-``CELERY_DEFAULT_EXCHANGE_TYPE``      :setting:`task_default_exchange_type`
+``CELERY_SECURITY_KEY_PASSWORD``           :setting:`security_key_password`
+``CELERY_ACKS_LATE``                       :setting:`task_acks_late`
+``CELERY_ACKS_ON_FAILURE_OR_TIMEOUT``      :setting:`task_acks_on_failure_or_timeout`
+``CELERY_ALWAYS_EAGER``                    :setting:`task_always_eager`
+``CELERY_ANNOTATIONS``                     :setting:`task_annotations`
+``CELERY_COMPRESSION``                     :setting:`task_compression`
+``CELERY_CREATE_MISSING_QUEUES``           :setting:`task_create_missing_queues`
+``CELERY_DEFAULT_DELIVERY_MODE``           :setting:`task_default_delivery_mode`
+``CELERY_DEFAULT_EXCHANGE``                :setting:`task_default_exchange`
+``CELERY_DEFAULT_EXCHANGE_TYPE``           :setting:`task_default_exchange_type`
 ``CELERY_DEFAULT_QUEUE``                   :setting:`task_default_queue`
-``CELERY_DEFAULT_RATE_LIMIT``         :setting:`task_default_rate_limit`
-``CELERY_DEFAULT_ROUTING_KEY``        :setting:`task_default_routing_key`
-``CELERY_EAGER_PROPAGATES``           :setting:`task_eager_propagates`
-``CELERY_IGNORE_RESULT``              :setting:`task_ignore_result`
-``CELERY_PUBLISH_RETRY``              :setting:`task_publish_retry`
-``CELERY_PUBLISH_RETRY_POLICY``       :setting:`task_publish_retry_policy`
+``CELERY_DEFAULT_RATE_LIMIT``              :setting:`task_default_rate_limit`
+``CELERY_DEFAULT_ROUTING_KEY``             :setting:`task_default_routing_key`
+``CELERY_EAGER_PROPAGATES``                :setting:`task_eager_propagates`
+``CELERY_IGNORE_RESULT``                   :setting:`task_ignore_result`
+``CELERY_PUBLISH_RETRY``                   :setting:`task_publish_retry`
+``CELERY_PUBLISH_RETRY_POLICY``            :setting:`task_publish_retry_policy`
 ``CELERY_QUEUES``                          :setting:`task_queues`
 ``CELERY_ROUTES``                          :setting:`task_routes`
-``CELERY_SEND_SENT_EVENT``            :setting:`task_send_sent_event`
-``CELERY_SERIALIZER``                 :setting:`task_serializer`
-``CELERYD_SOFT_TIME_LIMIT``           :setting:`task_soft_time_limit`
-``CELERYD_TIME_LIMIT``                :setting:`task_time_limit`
-``CELERY_TRACK_STARTED``                   :setting:`task_track_started`
+``CELERY_SEND_SENT_EVENT``                 :setting:`task_send_sent_event`
+``CELERY_TASK_SERIALIZER``                 :setting:`task_serializer`
+``CELERYD_SOFT_TIME_LIMIT``                :setting:`task_soft_time_limit`
+``CELERY_TASK_TRACK_STARTED``              :setting:`task_track_started`
+``CELERY_TASK_REJECT_ON_WORKER_LOST``      :setting:`task_reject_on_worker_lost`
+``CELERYD_TIME_LIMIT``                     :setting:`task_time_limit`
+``CELERY_ALLOW_ERROR_CB_ON_CHORD_HEADER``  :setting:`task_allow_error_cb_on_chord_header`
 ``CELERYD_AGENT``                          :setting:`worker_agent`
 ``CELERYD_AUTOSCALER``                     :setting:`worker_autoscaler`
 ``CELERYD_CONCURRENCY``                    :setting:`worker_concurrency`
@@ -315,7 +321,7 @@ instead of a dict to choose the tasks to annotate:
 
 .. code-block:: python
 
-    class MyAnnotate(object):
+    class MyAnnotate:
 
         def annotate(self, task):
             if task.name.startswith('tasks.'):
@@ -424,6 +430,23 @@ propagate exceptions.
 
 It's the same as always running ``apply()`` with ``throw=True``.
 
+.. setting:: task_store_eager_result
+
+``task_store_eager_result``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.1
+
+Default: Disabled.
+
+If this is :const:`True` and :setting:`task_always_eager` is :const:`True`
+and :setting:`task_ignore_result` is :const:`False`,
+the results of eagerly executed tasks will be saved to the backend.
+
+By default, even with :setting:`task_always_eager` set to :const:`True`
+and :setting:`task_ignore_result` set to :const:`False`,
+the result will not be saved.
+
 .. setting:: task_remote_tracebacks
 
 ``task_remote_tracebacks``
@@ -463,7 +486,7 @@ you can set :setting:`task_store_errors_even_if_ignored`.
 Default: Disabled.
 
 If set, the worker stores all task errors in the result store even if
-:attr:`Task.ignore_result <celery.task.base.Task.ignore_result>` is on.
+:attr:`Task.ignore_result <celery.app.task.Task.ignore_result>` is on.
 
 .. setting:: task_track_started
 
@@ -488,6 +511,57 @@ Default: No time limit.
 
 Task hard time limit in seconds. The worker processing the task will
 be killed and replaced with a new one when this is exceeded.
+
+.. setting:: task_allow_error_cb_on_chord_header
+
+``task_allow_error_cb_on_chord_header``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.3
+
+Default: Disabled.
+
+Enabling this flag will allow linking an error callback to a chord header,
+which by default will not link when using :code:`link_error()`, and preventing
+from the chord's body to execute if any of the tasks in the header fails.
+
+Consider the following canvas with the flag disabled (default behavior):
+
+.. code-block:: python
+
+    header = group([t1, t2])
+    body = t3
+    c = chord(header, body)
+    c.link_error(error_callback_sig)
+
+If *any* of the header tasks failed (:code:`t1` or :code:`t2`), by default, the chord body (:code:`t3`) would **not execute**, and :code:`error_callback_sig` will be called **once** (for the body).
+
+Enabling this flag will change the above behavior by:
+
+1. :code:`error_callback_sig` will be linked to :code:`t1` and :code:`t2` (as well as :code:`t3`).
+2. If *any* of the header tasks failed, :code:`error_callback_sig` will be called **for each** failed header task **and** the :code:`body` (even if the body didn't run).
+
+Consider now the following canvas with the flag enabled:
+
+.. code-block:: python
+
+    header = group([failingT1, failingT2])
+    body = t3
+    c = chord(header, body)
+    c.link_error(error_callback_sig)
+
+If *all* of the header tasks failed (:code:`failingT1` and :code:`failingT2`), then the chord body (:code:`t3`) would **not execute**, and :code:`error_callback_sig` will be called **3 times** (two times for the header and one time for the body).
+
+Lastly, consider the following canvas with the flag enabled:
+
+.. code-block:: python
+
+    header = group([failingT1, failingT2])
+    body = t3
+    upgraded_chord = chain(header, body)
+    upgraded_chord.link_error(error_callback_sig)
+
+This canvas will behave exactly the same as the previous one, since the :code:`chain` will be upgraded to a :code:`chord` internally.
 
 .. setting:: task_soft_time_limit
 
@@ -574,7 +648,7 @@ This value is used for tasks that doesn't have a custom rate limit
 
 .. seealso::
 
-    The setting:`worker_disable_rate_limits` setting can
+    The :setting:`worker_disable_rate_limits` setting can
     disable all rate limits.
 
 .. _conf-result-backend:
@@ -607,6 +681,10 @@ Can be one of the following:
 * ``cache``
     Use `Memcached`_ to store the results.
     See :ref:`conf-cache-result-backend`.
+
+* mongodb
+    Use `MongoDB`_ to store the results.
+    See :ref:`conf-mongodb-result-backend`.
 
 * ``cassandra``
     Use `Cassandra`_ to store the results.
@@ -659,6 +737,7 @@ Can be one of the following:
 
 .. _`SQLAlchemy`: http://sqlalchemy.org
 .. _`Memcached`: http://memcached.org
+.. _`MongoDB`: http://mongodb.org
 .. _`Redis`: https://redis.io
 .. _`Cassandra`: http://cassandra.apache.org/
 .. _`Elasticsearch`: https://aws.amazon.com/elasticsearch-service/
@@ -670,6 +749,47 @@ Can be one of the following:
 .. _`Consul`: https://consul.io/
 .. _`AzureBlockBlob`: https://azure.microsoft.com/en-us/services/storage/blobs/
 .. _`S3`: https://aws.amazon.com/s3/
+
+
+.. setting:: result_backend_always_retry
+
+``result_backend_always_retry``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: :const:`False`
+
+If enable, backend will try to retry on the event of recoverable exceptions instead of propagating the exception.
+It will use an exponential backoff sleep time between 2 retries.
+
+
+.. setting:: result_backend_max_sleep_between_retries_ms
+
+``result_backend_max_sleep_between_retries_ms``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: 10000
+
+This specifies the maximum sleep time between two backend operation retry.
+
+
+.. setting:: result_backend_base_sleep_between_retries_ms
+
+``result_backend_base_sleep_between_retries_ms``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: 10
+
+This specifies the base amount of sleep time between two backend operation retry.
+
+
+.. setting:: result_backend_max_retries
+
+``result_backend_max_retries``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: Inf
+
+This is the maximum of retries in case of recoverable exceptions.
 
 
 .. setting:: result_backend_transport_options
@@ -712,7 +832,7 @@ serialization formats.
 Default: No compression.
 
 Optional compression method used for task results.
-Supports the same options as the :setting:`task_serializer` setting.
+Supports the same options as the :setting:`task_compression` setting.
 
 .. setting:: result_extended
 
@@ -777,6 +897,34 @@ Default: 3.0.
 
 The timeout in seconds (int/float) when joining a group's results within a chord.
 
+.. setting:: result_chord_retry_interval
+
+``result_chord_retry_interval``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: 1.0.
+
+Default interval for retrying chord tasks.
+
+.. setting:: override_backends
+
+``override_backends``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: Disabled by default.
+
+Path to class that implements backend.
+
+Allows to override backend implementation.
+This can be useful if you need to store additional metadata about executed tasks,
+override retry policies, etc.
+
+Example:
+
+.. code-block:: python
+
+    override_backends = {"db": "custom_module.backend.class"}
+
 .. _conf-database-result-backend:
 
 Database backend settings
@@ -827,7 +975,7 @@ strings (this is the part of the URI that comes after the ``db+`` prefix).
 Default: ``{}`` (empty mapping).
 
 To specify additional SQLAlchemy database engine options you can use
-the :setting:`sqlalchmey_engine_options` setting::
+the :setting:`database_engine_options` setting::
 
     # echo enables verbose logging from SQLAlchemy.
     app.conf.database_engine_options = {'echo': True}
@@ -845,6 +993,25 @@ on low-traffic workers that experience errors as a result of cached database con
 going stale through inactivity. For example, intermittent errors like
 `(OperationalError) (2006, 'MySQL server has gone away')` can be fixed by enabling
 short lived sessions. This option only affects the database backend.
+
+.. setting:: database_table_schemas
+
+``database_table_schemas``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: ``{}`` (empty mapping).
+
+When SQLAlchemy is configured as the result backend, Celery automatically
+creates two tables to store result meta-data for tasks. This setting allows
+you to customize the schema of the tables:
+
+.. code-block:: python
+
+    # use custom schema for the database result backend.
+    database_table_schemas = {
+        'task': 'celery',
+        'group': 'celery',
+    }
 
 .. setting:: database_table_names
 
@@ -952,8 +1119,62 @@ setting:
 ``cache_backend``
 ~~~~~~~~~~~~~~~~~
 
-This setting is no longer used as it's now possible to specify
+This setting is no longer used in celery's builtin backends as it's now possible to specify
 the cache backend directly in the :setting:`result_backend` setting.
+
+.. note::
+
+    The :ref:`django-celery-results` library uses ``cache_backend`` for choosing django caches.
+
+.. _conf-mongodb-result-backend:
+
+MongoDB backend settings
+------------------------
+
+.. note::
+
+    The MongoDB backend requires the :mod:`pymongo` library:
+    http://github.com/mongodb/mongo-python-driver/tree/master
+
+.. setting:: mongodb_backend_settings
+
+mongodb_backend_settings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a dict supporting the following keys:
+
+* database
+    The database name to connect to. Defaults to ``celery``.
+
+* taskmeta_collection
+    The collection name to store task meta data.
+    Defaults to ``celery_taskmeta``.
+
+* max_pool_size
+    Passed as max_pool_size to PyMongo's Connection or MongoClient
+    constructor. It is the maximum number of TCP connections to keep
+    open to MongoDB at a given time. If there are more open connections
+    than max_pool_size, sockets will be closed when they are released.
+    Defaults to 10.
+
+* options
+
+    Additional keyword arguments to pass to the mongodb connection
+    constructor.  See the :mod:`pymongo` docs to see a list of arguments
+    supported.
+
+.. _example-mongodb-result-config:
+
+Example configuration
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    result_backend = 'mongodb://localhost:27017/'
+    mongodb_backend_settings = {
+        'database': 'mydb',
+        'taskmeta_collection': 'my_taskmeta_collection',
+    }
 
 .. _conf-redis-result-backend:
 
@@ -979,7 +1200,7 @@ Configuring the backend URL
 This backend requires the :setting:`result_backend`
 setting to be set to a Redis or `Redis over TLS`_ URL::
 
-    result_backend = 'redis://:password@host:port/db'
+    result_backend = 'redis://username:password@host:port/db'
 
 .. _`Redis over TLS`:
     https://www.iana.org/assignments/uri-schemes/prov/rediss
@@ -994,13 +1215,31 @@ is the same as::
 
 Use the ``rediss://`` protocol to connect to redis over TLS::
 
-    result_backend = 'rediss://:password@host:port/db?ssl_cert_reqs=CERT_REQUIRED'
+    result_backend = 'rediss://username:password@host:port/db?ssl_cert_reqs=required'
+
+Note that the ``ssl_cert_reqs`` string should be one of ``required``,
+``optional``, or ``none`` (though, for backwards compatibility, the string
+may also be one of ``CERT_REQUIRED``, ``CERT_OPTIONAL``, ``CERT_NONE``).
 
 If a Unix socket connection should be used, the URL needs to be in the format:::
 
     result_backend = 'socket:///path/to/redis.sock'
 
 The fields of the URL are defined as follows:
+
+#. ``username``
+
+    .. versionadded:: 5.1.0
+
+    Username used to connect to the database.
+
+    Note that this is only supported in Redis>=6.0 and with py-redis>=3.4.0
+    installed.
+
+    If you use an older database version or an older client version
+    you can omit the username::
+
+        result_backend = 'redis://:password@host:port/db'
 
 #. ``password``
 
@@ -1024,11 +1263,30 @@ When using a TLS connection (protocol is ``rediss://``), you may pass in all val
 .. code-block:: python
 
     result_backend = 'rediss://:password@host:port/db?\
-        ssl_cert_reqs=CERT_REQUIRED\
+        ssl_cert_reqs=required\
         &ssl_ca_certs=%2Fvar%2Fssl%2Fmyca.pem\                  # /var/ssl/myca.pem
         &ssl_certfile=%2Fvar%2Fssl%2Fredis-server-cert.pem\     # /var/ssl/redis-server-cert.pem
         &ssl_keyfile=%2Fvar%2Fssl%2Fprivate%2Fworker-key.pem'   # /var/ssl/private/worker-key.pem
 
+Note that the ``ssl_cert_reqs`` string should be one of ``required``,
+``optional``, or ``none`` (though, for backwards compatibility, the string
+may also be one of ``CERT_REQUIRED``, ``CERT_OPTIONAL``, ``CERT_NONE``).
+
+
+.. setting:: redis_backend_health_check_interval
+
+.. versionadded:: 5.1.0
+
+``redis_backend_health_check_interval``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: Not configured
+
+The Redis backend supports health checks.  This value must be
+set as an integer whose value is the number of seconds between
+health checks.  If a ConnectionError or a TimeoutError is
+encountered during the health check, the connection will be
+re-established and the command retried exactly once.
 
 .. setting:: redis_backend_use_ssl
 
@@ -1078,14 +1336,45 @@ Default: 120.0 seconds.
 Socket timeout for reading/writing operations to the Redis server
 in seconds (int/float), used by the redis result backend.
 
+.. setting:: redis_retry_on_timeout
+
+``redis_retry_on_timeout``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 4.4.1
+
+Default: :const:`False`
+
+To retry reading/writing operations on TimeoutError to the Redis server,
+used by the redis result backend. Shouldn't set this variable if using Redis
+connection by unix socket.
+
+.. setting:: redis_socket_keepalive
+
+``redis_socket_keepalive``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 4.4.1
+
+Default: :const:`False`
+
+Socket TCP keepalive to keep connections healthy to the Redis server,
+used by the redis result backend.
+
 .. _conf-cassandra-result-backend:
 
-Cassandra backend settings
---------------------------
+Cassandra/AstraDB backend settings
+----------------------------------
 
 .. note::
 
     This Cassandra backend driver requires :pypi:`cassandra-driver`.
+
+    This backend can refer to either a regular Cassandra installation
+    or a managed Astra DB instance. Depending on which one, exactly one
+    between the :setting:`cassandra_servers` and
+    :setting:`cassandra_secure_bundle_path` settings must be provided
+    (but not both).
 
     To install, use :command:`pip`:
 
@@ -1105,9 +1394,31 @@ This backend requires the following configuration directives to be set.
 
 Default: ``[]`` (empty list).
 
-List of ``host`` Cassandra servers. For example::
+List of ``host`` Cassandra servers. This must be provided when connecting to
+a Cassandra cluster. Passing this setting is strictly exclusive
+to :setting:`cassandra_secure_bundle_path`. Example::
 
     cassandra_servers = ['localhost']
+
+.. setting:: cassandra_secure_bundle_path
+
+``cassandra_secure_bundle_path``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: None.
+
+Absolute path to the secure-connect-bundle zip file to connect
+to an Astra DB instance. Passing this setting is strictly exclusive
+to :setting:`cassandra_servers`.
+Example::
+
+    cassandra_secure_bundle_path = '/home/user/bundles/secure-connect.zip'
+
+When connecting to Astra DB, it is necessary to specify
+the plain-text auth provider and the associated username and password,
+which take the value of the Client ID and the Client Secret, respectively,
+of a valid token generated for the Astra DB instance.
+See below for an Astra DB configuration example.
 
 .. setting:: cassandra_port
 
@@ -1125,7 +1436,7 @@ Port to contact the Cassandra servers on.
 
 Default: None.
 
-The key-space in which to store the results. For example::
+The keyspace in which to store the results. For example::
 
     cassandra_keyspace = 'tasks_keyspace'
 
@@ -1212,17 +1523,84 @@ Named arguments to pass into the ``cassandra.cluster`` class.
         'protocol_version': 3
     }
 
-Example configuration
-~~~~~~~~~~~~~~~~~~~~~
+Example configuration (Cassandra)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
+    result_backend = 'cassandra://'
     cassandra_servers = ['localhost']
     cassandra_keyspace = 'celery'
     cassandra_table = 'tasks'
-    cassandra_read_consistency = 'ONE'
-    cassandra_write_consistency = 'ONE'
+    cassandra_read_consistency = 'QUORUM'
+    cassandra_write_consistency = 'QUORUM'
     cassandra_entry_ttl = 86400
+
+Example configuration (Astra DB)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    result_backend = 'cassandra://'
+    cassandra_keyspace = 'celery'
+    cassandra_table = 'tasks'
+    cassandra_read_consistency = 'QUORUM'
+    cassandra_write_consistency = 'QUORUM'
+    cassandra_auth_provider = 'PlainTextAuthProvider'
+    cassandra_auth_kwargs = {
+      'username': '<<CLIENT_ID_FROM_ASTRA_DB_TOKEN>>',
+      'password': '<<CLIENT_SECRET_FROM_ASTRA_DB_TOKEN>>'
+    }
+    cassandra_secure_bundle_path = '/path/to/secure-connect-bundle.zip'
+    cassandra_entry_ttl = 86400
+
+Additional configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Cassandra driver, when estabilishing the connection, undergoes a stage
+of negotiating the protocol version with the server(s). Similarly,
+a load-balancing policy is automatically supplied (by default
+``DCAwareRoundRobinPolicy``, which in turn has a ``local_dc`` setting, also
+determined by the driver upon connection).
+When possible, one should explicitly provide these in the configuration:
+moreover, future versions of the Cassandra driver will require at least the
+load-balancing policy to be specified (using `execution profiles <https://docs.datastax.com/en/developer/python-driver/3.25/execution_profiles/>`_,
+as shown below).
+
+A full configuration for the Cassandra backend would thus have the
+following additional lines:
+
+.. code-block:: python
+
+    from cassandra.policies import DCAwareRoundRobinPolicy
+    from cassandra.cluster import ExecutionProfile
+    from cassandra.cluster import EXEC_PROFILE_DEFAULT
+    myEProfile = ExecutionProfile(
+      load_balancing_policy=DCAwareRoundRobinPolicy(
+        local_dc='datacenter1', # replace with your DC name
+      )
+    )
+    cassandra_options = {
+      'protocol_version': 5,    # for Cassandra 4, change if needed
+      'execution_profiles': {EXEC_PROFILE_DEFAULT: myEProfile},
+    }
+
+And similarly for Astra DB:
+
+.. code-block:: python
+
+    from cassandra.policies import DCAwareRoundRobinPolicy
+    from cassandra.cluster import ExecutionProfile
+    from cassandra.cluster import EXEC_PROFILE_DEFAULT
+    myEProfile = ExecutionProfile(
+      load_balancing_policy=DCAwareRoundRobinPolicy(
+        local_dc='europe-west1',  # for Astra DB, region name = dc name
+      )
+    )
+    cassandra_options = {
+      'protocol_version': 4,      # for Astra DB
+      'execution_profiles': {EXEC_PROFILE_DEFAULT: myEProfile},
+    }
 
 .. _conf-s3-result-backend:
 
@@ -1349,6 +1727,19 @@ Default: celery.
 
 The name for the storage container in which to store the results.
 
+.. setting:: azureblockblob_base_path
+
+``azureblockblob_base_path``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.1
+
+Default: None.
+
+A base path in the storage container to use to store result keys. For example::
+
+    azureblockblob_base_path = 'prefix/'
+
 .. setting:: azureblockblob_retry_initial_backoff_sec
 
 ``azureblockblob_retry_initial_backoff_sec``
@@ -1374,6 +1765,24 @@ Default: 2.
 Default: 3.
 
 The maximum number of retry attempts.
+
+.. setting:: azureblockblob_connection_timeout
+
+``azureblockblob_connection_timeout``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: 20.
+
+Timeout in seconds for establishing the azure block blob connection.
+
+.. setting:: azureblockblob_read_timeout
+
+``azureblockblob_read_timeout``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: 120.
+
+Timeout in seconds for reading of an azure block blob.
 
 .. _conf-elasticsearch-result-backend:
 
@@ -1417,79 +1826,15 @@ Default: 10.0 seconds.
 
 Global timeout,used by the elasticsearch result backend.
 
-.. _conf-riak-result-backend:
+.. setting:: elasticsearch_save_meta_as_text
 
-Riak backend settings
----------------------
+``elasticsearch_save_meta_as_text``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
+Default: :const:`True`
 
-    The Riak backend requires the :pypi:`riak` library.
-
-    To install the this package use :command:`pip`:
-
-    .. code-block:: console
-
-        $ pip install celery[riak]
-
-    See :ref:`bundles` for information on combining multiple extension
-    requirements.
-
-This backend requires the :setting:`result_backend`
-setting to be set to a Riak URL::
-
-    result_backend = 'riak://host:port/bucket'
-
-For example::
-
-    result_backend = 'riak://localhost/celery
-
-is the same as::
-
-    result_backend = 'riak://'
-
-The fields of the URL are defined as follows:
-
-#. ``host``
-
-    Host name or IP address of the Riak server (e.g., `'localhost'`).
-
-#. ``port``
-
-    Port to the Riak server using the protobuf protocol. Default is 8087.
-
-#. ``bucket``
-
-    Bucket name to use. Default is `celery`.
-    The bucket needs to be a string with ASCII characters only.
-
-Alternatively, this backend can be configured with the following configuration directives.
-
-.. setting:: riak_backend_settings
-
-``riak_backend_settings``
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Default: ``{}`` (empty mapping).
-
-This is a dict supporting the following keys:
-
-* ``host``
-
-    The host name of the Riak server. Defaults to ``"localhost"``.
-
-* ``port``
-
-    The port the Riak server is listening to. Defaults to 8087.
-
-* ``bucket``
-
-    The bucket name to connect to. Defaults to "celery".
-
-* ``protocol``
-
-    The protocol to use to connect to the Riak server. This isn't configurable
-    via :setting:`result_backend`
+Should meta saved as text or as native json.
+Result is always serialized as text.
 
 .. _conf-dynamodb-result-backend:
 
@@ -1509,6 +1854,13 @@ AWS DynamoDB backend settings
     See :ref:`bundles` for information on combining multiple extension
     requirements.
 
+.. warning::
+
+    The Dynamodb backend is not compatible with tables that have a sort key defined.
+
+    If you want to query the results table based on something other than the partition key,
+    please define a global secondary index (GSI) instead.
+
 This backend requires the :setting:`result_backend`
 setting to be set to a DynamoDB URL::
 
@@ -1516,7 +1868,7 @@ setting to be set to a DynamoDB URL::
 
 For example, specifying the AWS region and the table name::
 
-    result_backend = 'dynamodb://@us-east-1/celery_results
+    result_backend = 'dynamodb://@us-east-1/celery_results'
 
 or retrieving AWS configuration parameters from the environment, using the default table name (``celery``)
 and specifying read and write provisioned throughput::
@@ -1564,6 +1916,18 @@ The fields of the DynamoDB URL in ``result_backend`` are defined as follows:
 
     The Read & Write Capacity Units for the created DynamoDB table. Default is ``1`` for both read and write.
     More details can be found in the `Provisioned Throughput documentation <http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ProvisionedThroughput.html>`_.
+
+#. ``ttl_seconds``
+
+    Time-to-live (in seconds) for results before they expire. The default is to
+    not expire results, while also leaving the DynamoDB table's Time to Live
+    settings untouched. If ``ttl_seconds`` is set to a positive value, results
+    will expire after the specified number of seconds. Setting ``ttl_seconds``
+    to a negative value means to not expire results, and also to actively
+    disable the DynamoDB table's Time to Live setting. Note that trying to
+    change a table's Time to Live setting multiple times in quick succession
+    will cause a throttling error. More details can be found in the
+    `DynamoDB TTL documentation <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html>`_
 
 .. _conf-ironcache-result-backend:
 
@@ -1705,6 +2069,16 @@ This is a dict supporting the following keys:
 
     Password to authenticate to the ArangoDB server (optional).
 
+* ``http_protocol``
+
+    HTTP Protocol in ArangoDB server connection.
+    Defaults to ``http``.
+
+* ``verify``
+
+    HTTPS Verification check while creating the ArangoDB connection.
+    Defaults to ``False``.
+
 .. _conf-cosmosdbsql-result-backend:
 
 CosmosDB backend settings (experimental)
@@ -1837,14 +2211,54 @@ without any further configuration. For larger clusters you could use NFS,
 Consul K/V store backend settings
 ---------------------------------
 
-The Consul backend can be configured using a URL, for example:
+.. note::
+
+    The Consul backend requires the :pypi:`python-consul2` library:
+
+    To install this package use :command:`pip`:
+
+    .. code-block:: console
+
+        $ pip install python-consul2
+
+The Consul backend can be configured using a URL, for example::
 
     CELERY_RESULT_BACKEND = 'consul://localhost:8500/'
 
-The backend will storage results in the K/V store of Consul
-as individual keys.
+or::
 
-The backend supports auto expire of results using TTLs in Consul.
+    result_backend = 'consul://localhost:8500/'
+
+The backend will store results in the K/V store of Consul
+as individual keys. The backend supports auto expire of results using TTLs in
+Consul. The full syntax of the URL is:
+
+.. code-block:: text
+
+    consul://host:port[?one_client=1]
+
+The URL is formed out of the following parts:
+
+* ``host``
+
+    Host name of the Consul server.
+
+* ``port``
+
+    The port the Consul server is listening to.
+
+* ``one_client``
+
+    By default, for correctness, the backend uses a separate client connection
+    per operation. In cases of extreme load, the rate of creation of new
+    connections can cause HTTP 429 "too many connections" error responses from
+    the Consul server when under load. The recommended way to handle this is to
+    enable retries in ``python-consul2`` using the patch at
+    https://github.com/poppyred/python-consul2/pull/31.
+
+    Alternatively, if ``one_client`` is set, a single client connection will be
+    used for all operations instead. This should eliminate the HTTP 429 errors,
+    but the storage of results in the backend can become unreliable.
 
 .. _conf-messaging:
 
@@ -1915,7 +2329,7 @@ Examples:
         },
     }
 
-    task_routes = ('myapp.tasks.route_task', {'celery.ping': 'default})
+    task_routes = ('myapp.tasks.route_task', {'celery.ping': 'default'})
 
 Where ``myapp.tasks.route_task`` could be:
 
@@ -1953,7 +2367,7 @@ the final message options will be:
     immediate=False, exchange='video', routing_key='video.compress'
 
 (and any default message options defined in the
-:class:`~celery.task.base.Task` class)
+:class:`~celery.app.task.Task` class)
 
 Values defined in :setting:`task_routes` have precedence over values defined in
 :setting:`task_queues` when merging the two.
@@ -1986,33 +2400,6 @@ The final routing options for ``tasks.add`` will become:
      'serializer': 'json'}
 
 See :ref:`routers` for more examples.
-
-.. setting:: task_queue_ha_policy
-
-``task_queue_ha_policy``
-~~~~~~~~~~~~~~~~~~~~~~~~
-:brokers: RabbitMQ
-
-Default: :const:`None`.
-
-This will set the default HA policy for a queue, and the value
-can either be a string (usually ``all``):
-
-.. code-block:: python
-
-    task_queue_ha_policy = 'all'
-
-Using 'all' will replicate the queue to all current nodes,
-Or you can give it a list of nodes to replicate to:
-
-.. code-block:: python
-
-    task_queue_ha_policy = ['rabbit@host1', 'rabbit@host2']
-
-Using a list will implicitly set ``x-ha-policy`` to 'nodes' and
-``x-ha-policy-params`` to the given list of nodes.
-
-See http://www.rabbitmq.com/ha.html for more information.
 
 .. setting:: task_queue_max_priority
 
@@ -2073,7 +2460,7 @@ becomes::
 
     w1@example.com.dq
 
-Then you can route the task to the task by specifying the hostname
+Then you can route the task to the worker by specifying the hostname
 as the routing key and the ``C.dq`` exchange::
 
     task_routes = {
@@ -2378,7 +2765,28 @@ gevent.
 
 Default: Enabled.
 
-Automatically try to re-establish the connection to the AMQP broker if lost.
+Automatically try to re-establish the connection to the AMQP broker if lost
+after the initial connection is made.
+
+The time between retries is increased for each retry, and is
+not exhausted before :setting:`broker_connection_max_retries` is
+exceeded.
+
+.. warning::
+
+    The broker_connection_retry configuration setting will no longer determine
+    whether broker connection retries are made during startup in Celery 6.0 and above.
+    If you wish to refrain from retrying connections on startup,
+    you should set broker_connection_retry_on_startup to False instead.
+
+.. setting:: broker_connection_retry_on_startup
+
+``broker_connection_retry_on_startup``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: Enabled.
+
+Automatically try to establish the connection to the AMQP broker on Celery startup if it is unavailable.
 
 The time between retries is increased for each retry, and is
 not exhausted before :setting:`broker_connection_max_retries` is
@@ -2425,6 +2833,13 @@ transports):
 
     broker_transport_options = {'visibility_timeout': 18000}  # 5 hours
 
+Example setting the producer connection maximum number of retries (so producers
+won't retry forever if the broker isn't available at the first task execution):
+
+.. code-block:: python
+
+    broker_transport_options = {'max_retries': 5}
+
 .. _conf-worker:
 
 Worker
@@ -2456,6 +2871,33 @@ to have different import categories.
 
 The modules in this setting are imported after the modules in
 :setting:`imports`.
+
+.. setting:: worker_deduplicate_successful_tasks
+
+``worker_deduplicate_successful_tasks``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.1
+
+Default: False
+
+Before each task execution, instruct the worker to check if this task is
+a duplicate message.
+
+Deduplication occurs only with tasks that have the same identifier,
+enabled late acknowledgment, were redelivered by the message broker
+and their state is ``SUCCESS`` in the result backend.
+
+To avoid overflowing the result backend with queries, a local cache of
+successfully executed tasks is checked before querying the result backend
+in case the task was already successfully executed by the same worker that
+received the task.
+
+This cache can be made persistent by setting the :setting:`worker_state_db`
+setting.
+
+If the result backend is not persistent (the RPC backend, for example),
+this setting is ignored.
 
 .. _conf-concurrency:
 
@@ -2585,11 +3027,41 @@ Specify if remote control of the workers is enabled.
 .. setting:: worker_proc_alive_timeout
 
 ``worker_proc_alive_timeout``
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Default: 4.0.
 
 The timeout in seconds (int/float) when waiting for a new worker process to start up.
+
+.. setting:: worker_cancel_long_running_tasks_on_connection_loss
+
+``worker_cancel_long_running_tasks_on_connection_loss``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.1
+
+Default: Disabled by default.
+
+Kill all long-running tasks with late acknowledgment enabled on connection loss.
+
+Tasks which have not been acknowledged before the connection loss cannot do so
+anymore since their channel is gone and the task is redelivered back to the queue.
+This is why tasks with late acknowledged enabled must be idempotent as they may be executed more than once.
+In this case, the task is being executed twice per connection loss (and sometimes in parallel in other workers).
+
+When turning this option on, those tasks which have not been completed are
+cancelled and their execution is terminated.
+Tasks which have completed in any way before the connection loss
+are recorded as such in the result backend as long as :setting:`task_ignore_result` is not enabled.
+
+.. warning::
+
+    This feature was introduced as a future breaking change.
+    If it is turned off, Celery will emit a warning message.
+
+    In Celery 6.0, the :setting:`worker_cancel_long_running_tasks_on_connection_loss`
+    will be set to ``True`` by default as the current behavior leads to more
+    problems than it solves.
 
 .. _conf-events:
 
@@ -2790,7 +3262,7 @@ Default:
 .. code-block:: text
 
     "[%(asctime)s: %(levelname)s/%(processName)s]
-        [%(task_name)s(%(task_id)s)] %(message)s"
+        %(task_name)s[%(task_id)s]: %(message)s"
 
 The format to use for log messages logged in tasks.
 
@@ -2836,6 +3308,18 @@ Default: :const:`None`.
 
 The relative or absolute path to a file containing the private key
 used to sign messages when :ref:`message-signing` is used.
+
+.. setting:: security_key_password
+
+``security_key_password``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Default: :const:`None`.
+
+.. versionadded:: 5.3.0
+
+The password used to decrypt the private key when :ref:`message-signing`
+is used.
 
 .. setting:: security_certificate
 

@@ -48,22 +48,6 @@ like adding new worker nodes, or revoking unnecessary tasks.
 General Settings
 ================
 
-.. _optimizing-librabbitmq:
-
-librabbitmq
------------
-
-If you're using RabbitMQ (AMQP) as the broker then you can install the
-:pypi:`librabbitmq` module to use an optimized client written in C:
-
-.. code-block:: console
-
-    $ pip install librabbitmq
-
-The 'amqp' transport will automatically use the librabbitmq module if it's
-installed, or you can also specify the transport you want directly by using
-the ``pyamqp://`` or ``librabbitmq://`` prefixes.
-
 .. _optimizing-connection-pools:
 
 Broker Connection Pools
@@ -195,56 +179,37 @@ You can enable this behavior by using the following configuration options:
     task_acks_late = True
     worker_prefetch_multiplier = 1
 
-.. _prefork-pool-prefetch:
+Memory Usage
+------------
 
-Prefork pool prefetch settings
-------------------------------
+If you are experiencing high memory usage on a prefork worker, first you need
+to determine whether the issue is also happening on the Celery master
+process. The Celery master process's memory usage should not continue to
+increase drastically after start-up. If you see this happening, it may indicate
+a memory leak bug which should be reported to the Celery issue tracker.
 
-The prefork pool will asynchronously send as many tasks to the processes
-as it can and this means that the processes are, in effect, prefetching
-tasks.
+If only your child processes have high memory usage, this indicates an issue
+with your task.
 
-This benefits performance but it also means that tasks may be stuck
-waiting for long running tasks to complete::
+Keep in mind, Python process memory usage has a "high watermark" and will not
+return memory to the operating system until the child process has stopped. This
+means a single high memory usage task could permanently increase the memory
+usage of a child process until it's restarted. Fixing this may require adding
+chunking logic to your task to reduce peak memory usage.
 
-    -> send task T1 to process A
-    # A executes T1
-    -> send task T2 to process B
-    # B executes T2
-    <- T2 complete sent by process B
+Celery workers have two main ways to help reduce memory usage due to the "high
+watermark" and/or memory leaks in child processes: the
+:setting:`worker_max_tasks_per_child` and :setting:`worker_max_memory_per_child`
+settings.
 
-    -> send task T3 to process A
-    # A still executing T1, T3 stuck in local buffer and won't start until
-    # T1 returns, and other queued tasks won't be sent to idle processes
-    <- T1 complete sent by process A
-    # A executes T3
+You must be careful not to set these settings too low, or else your workers
+will spend most of their time restarting child processes instead of processing
+tasks. For example, if you use a :setting:`worker_max_tasks_per_child` of 1
+and your child process takes 1 second to start, then that child process would
+only be able to process a maximum of 60 tasks per minute (assuming the task ran
+instantly). A similar issue can occur when your tasks always exceed
+:setting:`worker_max_memory_per_child`.
 
-The worker will send tasks to the process as long as the pipe buffer is
-writable. The pipe buffer size varies based on the operating system: some may
-have a buffer as small as 64KB but on recent Linux versions the buffer
-size is 1MB (can only be changed system wide).
-
-You can disable this prefetching behavior by enabling the
-:option:`-O fair <celery worker -O>` worker option:
-
-.. code-block:: console
-
-    $ celery -A proj worker -l info -O fair
-
-With this option enabled the worker will only write to processes that are
-available for work, disabling the prefetch behavior::
-
-    -> send task T1 to process A
-    # A executes T1
-    -> send task T2 to process B
-    # B executes T2
-    <- T2 complete sent by process B
-
-    -> send T3 to process B
-    # B executes T3
-
-    <- T3 complete sent by process B
-    <- T1 complete sent by process A
 
 .. rubric:: Footnotes
 

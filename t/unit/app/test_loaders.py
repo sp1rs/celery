@@ -1,15 +1,12 @@
-from __future__ import absolute_import, unicode_literals
-
 import os
 import sys
 import warnings
+from unittest.mock import Mock, patch
 
 import pytest
 
-from case import Mock, mock, patch
 from celery import loaders
 from celery.exceptions import NotConfigured
-from celery.five import bytes_if_py2
 from celery.loaders import base, default
 from celery.loaders.app import AppLoader
 from celery.utils.imports import NotAPackage
@@ -71,9 +68,12 @@ class test_LoaderBase:
         m.assert_called_with()
 
     def test_config_from_object_module(self):
-        self.loader.import_from_cwd = Mock()
+        self.loader.import_from_cwd = Mock(return_value={
+            "override_backends": {"db": "custom.backend.module"},
+        })
         self.loader.config_from_object('module_name')
         self.loader.import_from_cwd.assert_called_with('module_name')
+        assert self.loader.override_backends == {"db": "custom.backend.module"}
 
     def test_conf_property(self):
         assert self.loader.conf['foo'] == 'bar'
@@ -119,8 +119,8 @@ class test_DefaultLoader:
             l.read_configuration(fail_silently=False)
 
     @patch('celery.loaders.base.find_module')
-    @mock.environ('CELERY_CONFIG_MODULE', 'celeryconfig.py')
-    def test_read_configuration_py_in_name(self, find_module):
+    @pytest.mark.patched_environ('CELERY_CONFIG_MODULE', 'celeryconfig.py')
+    def test_read_configuration_py_in_name(self, find_module, environ):
         find_module.side_effect = NotAPackage()
         l = default.Loader(app=self.app)
         with pytest.raises(NotAPackage):
@@ -143,7 +143,7 @@ class test_DefaultLoader:
             pass
 
         configname = os.environ.get('CELERY_CONFIG_MODULE') or 'celeryconfig'
-        celeryconfig = ConfigModule(bytes_if_py2(configname))
+        celeryconfig = ConfigModule(configname)
         celeryconfig.imports = ('os', 'sys')
 
         prevconfig = sys.modules.get(configname)

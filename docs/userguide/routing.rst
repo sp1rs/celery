@@ -207,7 +207,7 @@ If you're confused about these terms, you should read up on AMQP.
     For users of RabbitMQ the `RabbitMQ FAQ`_
     could be useful as a source of information.
 
-.. _`Rabbits and Warrens`: http://blogs.digitar.com/jjww/2009/01/rabbits-and-warrens/
+.. _`Rabbits and Warrens`: http://web.archive.org/web/20160323134044/http://blogs.digitar.com/jjww/2009/01/rabbits-and-warrens/
 .. _`CloudAMQP tutorial`: amqp in 10 minutes part 3
     https://www.cloudamqp.com/blog/2015-09-03-part4-rabbitmq-for-beginners-exchanges-routing-keys-bindings.html
 .. _`RabbitMQ FAQ`: https://www.rabbitmq.com/faq.html
@@ -262,23 +262,45 @@ While the Celery Redis transport does honor the priority field, Redis itself has
 no notion of priorities. Please read this note before attempting to implement
 priorities with Redis as you may experience some unexpected behavior.
 
-The priority support is implemented by creating n lists for each queue.
-This means that even though there are 10 (0-9) priority levels, these are
-consolidated into 4 levels by default to save resources. This means that a
-queue named celery will really be split into 4 queues:
+To start scheduling tasks based on priorities you need to configure queue_order_strategy transport option.
 
 .. code-block:: python
 
-    ['celery0', 'celery3', 'celery6', 'celery9']
+    app.conf.broker_transport_options = {
+        'queue_order_strategy': 'priority',
+    }
 
 
-If you want more priority levels you can set the priority_steps transport option:
+The priority support is implemented by creating n lists for each queue.
+This means that even though there are 10 (0-9) priority levels, these are
+consolidated into 4 levels by default to save resources. This means that a
+queue named celery will really be split into 4 queues.
+
+The highest priority queue will be named celery, and the the other queues will
+have a separator (by default `\x06\x16`) and their priority number appended to
+the queue name.
+
+.. code-block:: python
+
+    ['celery', 'celery\x06\x163', 'celery\x06\x166', 'celery\x06\x169']
+
+
+If you want more priority levels or a different separator you can set the
+priority_steps and sep transport options:
 
 .. code-block:: python
 
     app.conf.broker_transport_options = {
         'priority_steps': list(range(10)),
+        'sep': ':',
+        'queue_order_strategy': 'priority',
     }
+
+The config above will give you these queue names:
+
+.. code-block:: python
+
+    ['celery', 'celery:1', 'celery:2', 'celery:3', 'celery:4', 'celery:5', 'celery:6', 'celery:7', 'celery:8', 'celery:9']
 
 
 That said, note that this will never be as good as priorities implemented at the
@@ -506,7 +528,7 @@ using the ``basic.publish`` command:
     ok.
 
 Now that the message is sent you can retrieve it again. You can use the
-``basic.get``` command here, that polls for new messages on the queue
+``basic.get`` command here, that polls for new messages on the queue
 in a synchronous manner
 (this is OK for maintenance tasks, but for services you want to use
 ``basic.consume`` instead)
@@ -614,7 +636,7 @@ Specifying task destination
 The destination for a task is decided by the following (in order):
 
 1. The routing arguments to :func:`Task.apply_async`.
-2. Routing related attributes defined on the :class:`~celery.task.base.Task`
+2. Routing related attributes defined on the :class:`~celery.app.task.Task`
    itself.
 3. The :ref:`routers` defined in :setting:`task_routes`.
 

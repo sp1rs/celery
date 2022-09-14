@@ -135,23 +135,18 @@ task that adds 16 to the previous result, forming the expression
 
 
 You can also cause a callback to be applied if task raises an exception
-(*errback*), but this behaves differently from a regular callback
-in that it will be passed the id of the parent task, not the result.
-This is because it may not always be possible to serialize
-the exception raised, and so this way the error callback requires
-a result backend to be enabled, and the task must retrieve the result
-of the task instead.
+(*errback*). The worker won't actually call the errback as a task, but will
+instead call the errback function directly so that the raw request, exception
+and traceback objects can be passed to it.
 
 This is an example error callback:
 
 .. code-block:: python
 
     @app.task
-    def error_handler(uuid):
-        result = AsyncResult(uuid)
-        exc = result.get(propagate=False)
+    def error_handler(request, exc, traceback):
         print('Task {0} raised exception: {1!r}\n{2!r}'.format(
-              uuid, exc, result.traceback))
+              request.id, exc, traceback))
 
 it can be added to the task using the ``link_error`` execution
 option:
@@ -171,6 +166,9 @@ as a list:
 The callbacks/errbacks will then be called in order, and all
 callbacks will be called with the return value of the parent task
 as a partial argument.
+
+In the case of a chord, we can handle errors using multiple handling strategies.
+See :ref:`chord error handling <chord-errors>` for more information.
 
 .. _calling-on-message:
 
@@ -256,6 +254,31 @@ and timezone information):
 
     >>> tomorrow = datetime.utcnow() + timedelta(days=1)
     >>> add.apply_async((2, 2), eta=tomorrow)
+
+.. warning::
+
+    When using RabbitMQ as a message broker when specifying a ``countdown``
+    over 15 minutes, you may encounter the problem that the worker terminates
+    with an :exc:`~amqp.exceptions.PreconditionFailed` error will be raised:
+
+    .. code-block:: pycon
+
+        amqp.exceptions.PreconditionFailed: (0, 0): (406) PRECONDITION_FAILED - consumer ack timed out on channel
+
+    In RabbitMQ since version 3.8.15 the default value for
+    ``consumer_timeout`` is 15 minutes.
+    Since version 3.8.17 it was increased to 30 minutes. If a consumer does
+    not ack its delivery for more than the timeout value, its channel will be
+    closed with a ``PRECONDITION_FAILED`` channel exception.
+    See `Delivery Acknowledgement Timeout`_ for more information.
+
+    To solve the problem, in RabbitMQ configuration file ``rabbitmq.conf`` you
+    should specify the ``consumer_timeout`` parameter greater than or equal to
+    your countdown value. For example, you can specify a very large value
+    of ``consumer_timeout = 31622400000``, which is equal to 1 year
+    in milliseconds, to avoid problems in the future.
+
+.. _`Delivery Acknowledgement Timeout`: https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
 
 .. _calling-expiration:
 
@@ -446,6 +469,16 @@ json -- JSON is supported in many programming languages, is now
     best choice.
 
     See http://json.org for more information.
+
+    .. note::
+
+        (From Python official docs https://docs.python.org/3.6/library/json.html)
+        Keys in key/value pairs of JSON are always of the type :class:`str`. When
+        a dictionary is converted into JSON, all the keys of the dictionary are
+        coerced to strings. As a result of this, if a dictionary is converted
+        into JSON and then back into a dictionary, the dictionary may not equal
+        the original one. That is, ``loads(dumps(x)) != x`` if x has non-string
+        keys.
 
 pickle -- If you have no desire to support any language other than
     Python, then using the pickle encoding will gain you the support of
@@ -643,13 +676,13 @@ publisher:
 
 .. code-block:: python
 
-
+    numbers = [(2, 2), (4, 4), (8, 8), (16, 16)]
     results = []
     with add.app.pool.acquire(block=True) as connection:
         with add.get_publisher(connection) as publisher:
             try:
-                for args in numbers:
-                    res = add.apply_async((2, 2), publisher=publisher)
+                for i, j in numbers:
+                    res = add.apply_async((i, j), publisher=publisher)
                     results.append(res)
     print([res.get() for res in results])
 
@@ -682,7 +715,7 @@ the workers :option:`-Q <celery worker -Q>` argument:
 
 .. code-block:: console
 
-    $ celery -A proj worker -l info -Q celery,priority.high
+    $ celery -A proj worker -l INFO -Q celery,priority.high
 
 .. seealso::
 
@@ -701,13 +734,13 @@ setting or by using the ``ignore_result`` option:
 
 .. code-block:: pycon
 
-  >>> result = add.apply_async(1, 2, ignore_result=True)
+  >>> result = add.apply_async((1, 2), ignore_result=True)
   >>> result.get()
   None
 
   >>> # Do not ignore result (default)
   ...
-  >>> result = add.apply_async(1, 2, ignore_result=False)
+  >>> result = add.apply_async((1, 2), ignore_result=False)
   >>> result.get()
   3
 

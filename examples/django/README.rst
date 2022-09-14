@@ -33,7 +33,7 @@ Installing requirements
 The settings file assumes that ``rabbitmq-server`` is running on ``localhost``
 using the default ports. More information here:
 
-http://docs.celeryproject.org/en/latest/getting-started/brokers/rabbitmq.html
+https://docs.celeryq.dev/en/latest/getting-started/brokers/rabbitmq.html
 
 In addition, some Python requirements must also be satisfied:
 
@@ -46,7 +46,7 @@ Starting the worker
 
 .. code-block:: console
 
-    $ celery -A proj worker -l info
+    $ celery -A proj worker -l INFO
 
 Running a task
 ===================

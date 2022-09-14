@@ -1,9 +1,9 @@
-.. image:: http://docs.celeryproject.org/en/latest/_images/celery-banner-small.png
+.. image:: https://docs.celeryq.dev/en/latest/_images/celery-banner-small.png
 
 |build-status| |coverage| |license| |wheel| |pyversion| |pyimp| |ocbackerbadge| |ocsponsorbadge|
 
-:Version: 4.4.0rc2 (cliffs)
-:Web: http://celeryproject.org/
+:Version: 5.3.0b1 (dawn-chorus)
+:Web: https://docs.celeryq.dev/en/stable/index.html
 :Download: https://pypi.org/project/celery/
 :Source: https://github.com/celery/celery/
 :Keywords: task, queue, job, async, rabbitmq, amqp, redis,
@@ -19,12 +19,12 @@ If you are using Celery to create a commercial product, please consider becoming
 .. _`backer`: https://opencollective.com/celery#backer
 .. _`sponsor`: https://opencollective.com/celery#sponsor
 
+For enterprise
+==============
 
-Sponsors
---------
+Available as part of the Tidelift Subscription.
 
-`Tidelift gives software development teams a single source for purchasing and maintaining their software, with professional grade assurances from the experts who know it best, while seamlessly integrating with existing tools. <https://tidelift.com/subscription/pkg/pypi-celery?utm_source=pypi-celery&utm_medium=referral&utm_campaign=readme>`_
-
+The maintainers of ``celery`` and thousands of other packages are working with Tidelift to deliver commercial support and maintenance for the open source dependencies you use to build your applications. Save time, reduce risk, and improve code health, while paying the maintainers of the exact dependencies you use. `Learn more. <https://tidelift.com/subscription/pkg/pypi-celery?utm_source=pypi-celery&utm_medium=referral&utm_campaign=enterprise&utm_term=repo>`_
 
 What's a Task Queue?
 ====================
@@ -44,33 +44,35 @@ to high availability and horizontal scaling.
 
 Celery is written in Python, but the protocol can be implemented in any
 language. In addition to Python there's node-celery_ for Node.js,
-and a `PHP client`_.
+a `PHP client`_, `gocelery`_ for golang, and rusty-celery_ for Rust.
 
 Language interoperability can also be achieved by using webhooks
 in such a way that the client enqueues an URL to be requested by a worker.
 
 .. _node-celery: https://github.com/mher/node-celery
 .. _`PHP client`: https://github.com/gjedeer/celery-php
+.. _`gocelery`: https://github.com/gocelery/gocelery
+.. _rusty-celery: https://github.com/rusty-celery/rusty-celery
 
 What do I need?
 ===============
 
-Celery version 4.3 runs on,
+Celery version 5.3.0a1 runs on,
 
-- Python (2.7, 3.4, 3.5, 3.6, 3.7)
-- PyPy2.7 (6.0)
-- PyPy3.5 (6.0)
+- Python (3.7, 3.8, 3.9, 3.10)
+- PyPy3.7 (7.3.7+)
 
 
-This is the last version to support Python 2.7,
-and from the next version (Celery 5.x) Python 3.5 or newer is required.
+This is the version of celery which will support Python 3.7 or newer.
 
 If you're running an older version of Python, you need to be running
 an older version of Celery:
 
+- Python 3.6: Celery 5.1 or earlier.
+- Python 2.7: Celery 4.x series.
 - Python 2.6: Celery series 3.1 or earlier.
 - Python 2.5: Celery series 3.0 or earlier.
-- Python 2.4 was Celery series 2.2 or earlier.
+- Python 2.4: Celery series 2.2 or earlier.
 
 Celery is a project with minimal funding,
 so we don't support Microsoft Windows.
@@ -88,7 +90,7 @@ Get Started
 ===========
 
 If this is the first time you're trying to use Celery, or you're
-new to Celery 4.2 coming from previous versions then you should read our
+new to Celery v5.3.0a1 coming from previous versions then you should read our
 getting started tutorials:
 
 - `First steps with Celery`_
@@ -100,10 +102,12 @@ getting started tutorials:
     A more complete overview, showing more features.
 
 .. _`First steps with Celery`:
-    http://docs.celeryproject.org/en/latest/getting-started/first-steps-with-celery.html
+    https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html
 
 .. _`Next steps`:
-    http://docs.celeryproject.org/en/latest/getting-started/next-steps.html
+    https://docs.celeryq.dev/en/stable/getting-started/next-steps.html
+
+ You can also get started with Celery by using a hosted broker transport CloudAMQP. The largest hosting provider of RabbitMQ is a proud sponsor of Celery.
 
 Celery is...
 =============
@@ -115,7 +119,9 @@ Celery is...
     It has an active, friendly community you can talk to for support,
     like at our `mailing-list`_, or the IRC channel.
 
-    Here's one of the simplest applications you can make::
+    Here's one of the simplest applications you can make:
+
+    .. code-block:: python
 
         from celery import Celery
 
@@ -218,7 +224,9 @@ Documentation
 The `latest documentation`_ is hosted at Read The Docs, containing user guides,
 tutorials, and an API reference.
 
-.. _`latest documentation`: http://docs.celeryproject.org/en/latest/
+最新的中文文档托管在 https://www.celerycn.io/ 中，包含用户指南、教程、API接口等。
+
+.. _`latest documentation`: https://docs.celeryq.dev/en/latest/
 
 .. _celery-installation:
 
@@ -250,9 +258,9 @@ separating them by commas.
 ::
 
 
-    $ pip install "celery[librabbitmq]"
+    $ pip install "celery[amqp]"
 
-    $ pip install "celery[librabbitmq,redis,auth,msgpack]"
+    $ pip install "celery[amqp,redis,auth,msgpack]"
 
 The following bundles are available:
 
@@ -280,8 +288,8 @@ Concurrency
 Transports and Backends
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-:``celery[librabbitmq]``:
-    for using the librabbitmq C library.
+:``celery[amqp]``:
+    for using the RabbitMQ amqp python library.
 
 :``celery[redis]``:
     for using Redis as a message transport or as a result backend.
@@ -299,7 +307,7 @@ Transports and Backends
     for using Memcached as a result backend (pure-Python implementation).
 
 :``celery[cassandra]``:
-    for using Apache Cassandra as a result backend with DataStax driver.
+    for using Apache Cassandra/Astra DB as a result backend with the DataStax driver.
 
 :``celery[azureblockblob]``:
     for using Azure Storage as a result backend (using ``azure-storage``)
@@ -414,10 +422,10 @@ please join the `celery-users`_ mailing list.
 IRC
 ---
 
-Come chat with us on IRC. The **#celery** channel is located at the `Freenode`_
-network.
+Come chat with us on IRC. The **#celery** channel is located at the
+`Libera Chat`_ network.
 
-.. _`Freenode`: https://freenode.net
+.. _`Libera Chat`: https://libera.chat/
 
 .. _bug-tracker:
 
@@ -453,7 +461,7 @@ Be sure to also read the `Contributing to Celery`_ section in the
 documentation.
 
 .. _`Contributing to Celery`:
-    http://docs.celeryproject.org/en/master/contributing.html
+    https://docs.celeryq.dev/en/master/contributing.html
 
 |oc-contributors|
 
@@ -495,9 +503,9 @@ file in the top distribution directory for the full license text.
 
 .. # vim: syntax=rst expandtab tabstop=4 shiftwidth=4 shiftround
 
-.. |build-status| image:: https://secure.travis-ci.org/celery/celery.png?branch=master
+.. |build-status| image:: https://github.com/celery/celery/actions/workflows/python-package.yml/badge.svg
     :alt: Build status
-    :target: https://travis-ci.org/celery/celery
+    :target: https://github.com/celery/celery/actions/workflows/python-package.yml
 
 .. |coverage| image:: https://codecov.io/github/celery/celery/coverage.svg?branch=master
     :target: https://codecov.io/github/celery/celery?branch=master
@@ -515,7 +523,7 @@ file in the top distribution directory for the full license text.
     :target: https://pypi.org/project/celery/
 
 .. |pyimp| image:: https://img.shields.io/pypi/implementation/celery.svg
-    :alt: Support Python implementations.
+    :alt: Supported Python implementations.
     :target: https://pypi.org/project/celery/
 
 .. |ocbackerbadge| image:: https://opencollective.com/celery/backers/badge.svg

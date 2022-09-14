@@ -1,27 +1,18 @@
-# -*- coding: utf-8 -*-
 """Schedules define the intervals at which periodic tasks run."""
-from __future__ import absolute_import, unicode_literals
 
 import numbers
 import re
 from bisect import bisect, bisect_left
 from collections import namedtuple
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from kombu.utils.objects import cached_property
 
 from . import current_app
-from .five import python_2_unicode_compatible, range, string_t
 from .utils.collections import AttributeDict
-from .utils.time import (ffwd, humanize_seconds, localize, maybe_make_aware,
-                         maybe_timedelta, remaining, timezone, weekday)
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    # TODO: Remove this when we drop Python 2.7 support
-    from collections import Iterable
-
+from .utils.time import (ffwd, humanize_seconds, localize, maybe_make_aware, maybe_timedelta, remaining, timezone,
+                         weekday)
 
 __all__ = (
     'ParseException', 'schedule', 'crontab', 'crontab_parser',
@@ -41,9 +32,10 @@ int, str, or an iterable type. {type!r} was given.\
 """
 
 CRON_REPR = """\
-<crontab: {0._orig_minute} {0._orig_hour} {0._orig_day_of_week} \
-{0._orig_day_of_month} {0._orig_month_of_year} (m/h/d/dM/MY)>\
+<crontab: {0._orig_minute} {0._orig_hour} {0._orig_day_of_month} {0._orig_month_of_year} \
+{0._orig_day_of_week} (m/h/dM/MY/d)>\
 """
+
 
 SOLAR_INVALID_LATITUDE = """\
 Argument latitude {lat} is invalid, must be between -90 and 90.\
@@ -66,7 +58,7 @@ class ParseException(Exception):
     """Raised by :class:`crontab_parser` when the input can't be parsed."""
 
 
-class BaseSchedule(object):
+class BaseSchedule:
 
     def __init__(self, nowfun=None, app=None):
         self.nowfun = nowfun
@@ -88,7 +80,7 @@ class BaseSchedule(object):
     def app(self):
         return self._app or current_app._get_current_object()
 
-    @app.setter  # noqa
+    @app.setter
     def app(self, app):
         self._app = app
 
@@ -111,7 +103,6 @@ class BaseSchedule(object):
         return NotImplemented
 
 
-@python_2_unicode_compatible
 class schedule(BaseSchedule):
     """Schedule for periodic task.
 
@@ -129,7 +120,7 @@ class schedule(BaseSchedule):
     def __init__(self, run_every=None, relative=False, nowfun=None, app=None):
         self.run_every = maybe_timedelta(run_every)
         self.relative = relative
-        super(schedule, self).__init__(nowfun=nowfun, app=app)
+        super().__init__(nowfun=nowfun, app=app)
 
     def remaining_estimate(self, last_run_at):
         return remaining(
@@ -175,15 +166,12 @@ class schedule(BaseSchedule):
         return schedstate(is_due=False, next=remaining_s)
 
     def __repr__(self):
-        return '<freq: {0.human_seconds}>'.format(self)
+        return f'<freq: {self.human_seconds}>'
 
     def __eq__(self, other):
         if isinstance(other, schedule):
             return self.run_every == other.run_every
         return self.run_every == other
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __reduce__(self):
         return self.__class__, (self.run_every, self.relative, self.nowfun)
@@ -197,7 +185,7 @@ class schedule(BaseSchedule):
         return humanize_seconds(self.seconds)
 
 
-class crontab_parser(object):
+class crontab_parser:
     """Parser for Crontab expressions.
 
     Any expression of the form 'groups'
@@ -300,7 +288,7 @@ class crontab_parser(object):
         return list(range(self.min_, self.max_ + self.min_))
 
     def _expand_number(self, s):
-        if isinstance(s, string_t) and s[0] == '-':
+        if isinstance(s, str) and s[0] == '-':
             raise self.ParseException('negative numbers not supported')
         try:
             i = int(s)
@@ -308,20 +296,19 @@ class crontab_parser(object):
             try:
                 i = weekday(s)
             except KeyError:
-                raise ValueError('Invalid weekday literal {0!r}.'.format(s))
+                raise ValueError(f'Invalid weekday literal {s!r}.')
 
         max_val = self.min_ + self.max_ - 1
         if i > max_val:
             raise ValueError(
-                'Invalid end range: {0} > {1}.'.format(i, max_val))
+                f'Invalid end range: {i} > {max_val}.')
         if i < self.min_:
             raise ValueError(
-                'Invalid beginning range: {0} < {1}.'.format(i, self.min_))
+                f'Invalid beginning range: {i} < {self.min_}.')
 
         return i
 
 
-@python_2_unicode_compatible
 class crontab(BaseSchedule):
     """Crontab schedule.
 
@@ -413,7 +400,7 @@ class crontab(BaseSchedule):
         self.day_of_week = self._expand_cronspec(day_of_week, 7)
         self.day_of_month = self._expand_cronspec(day_of_month, 31, 1)
         self.month_of_year = self._expand_cronspec(month_of_year, 12, 1)
-        super(crontab, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @staticmethod
     def _expand_cronspec(cronspec, max_, min_=0):
@@ -444,7 +431,7 @@ class crontab(BaseSchedule):
         """
         if isinstance(cronspec, numbers.Integral):
             result = {cronspec}
-        elif isinstance(cronspec, string_t):
+        elif isinstance(cronspec, str):
             result = crontab_parser(max_, min_).parse(cronspec)
         elif isinstance(cronspec, set):
             result = cronspec
@@ -549,12 +536,10 @@ class crontab(BaseSchedule):
     def __setstate__(self, state):
         # Calling super's init because the kwargs aren't necessarily passed in
         # the same form as they are stored by the superclass
-        super(crontab, self).__init__(**state)
+        super().__init__(**state)
 
     def remaining_delta(self, last_run_at, tz=None, ffwd=ffwd):
-        # pylint: disable=redefined-outer-name
         # caching global ffwd
-        tz = tz or self.tz
         last_run_at = self.maybe_make_aware(last_run_at)
         now = self.maybe_make_aware(self.now())
         dow_num = last_run_at.isoweekday() % 7  # Sunday is day 0, not day 7
@@ -645,15 +630,9 @@ class crontab(BaseSchedule):
                 other.day_of_week == self.day_of_week and
                 other.hour == self.hour and
                 other.minute == self.minute and
-                super(crontab, self).__eq__(other)
+                super().__eq__(other)
             )
         return NotImplemented
-
-    def __ne__(self, other):
-        res = self.__eq__(other)
-        if res is NotImplemented:
-            return True
-        return not res
 
 
 def maybe_schedule(s, relative=False, app=None):
@@ -668,7 +647,6 @@ def maybe_schedule(s, relative=False, app=None):
     return s
 
 
-@python_2_unicode_compatible
 class solar(BaseSchedule):
     """Solar event.
 
@@ -677,7 +655,7 @@ class solar(BaseSchedule):
 
     Notes:
 
-        Available event valus are:
+        Available event values are:
 
             - ``dawn_astronomical``
             - ``dawn_nautical``
@@ -749,7 +727,7 @@ class solar(BaseSchedule):
         self.event = event
         self.lat = lat
         self.lon = lon
-        super(solar, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         if event not in self._all_events:
             raise ValueError(SOLAR_INVALID_EVENT.format(
@@ -775,7 +753,7 @@ class solar(BaseSchedule):
         return self.__class__, (self.event, self.lat, self.lon)
 
     def __repr__(self):
-        return '<solar: {0} at latitude {1}, longitude: {2}>'.format(
+        return '<solar: {} at latitude {}, longitude: {}>'.format(
             self.event, self.lat, self.lon,
         )
 
@@ -839,9 +817,3 @@ class solar(BaseSchedule):
                 other.lon == self.lon
             )
         return NotImplemented
-
-    def __ne__(self, other):
-        res = self.__eq__(other)
-        if res is NotImplemented:
-            return True
-        return not res

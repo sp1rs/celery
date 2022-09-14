@@ -1,35 +1,36 @@
-from __future__ import absolute_import, unicode_literals
-
 import gc
 import itertools
 import os
 import ssl
+import uuid
 from copy import deepcopy
 from datetime import datetime, timedelta
 from pickle import dumps, loads
+from unittest.mock import Mock, patch
 
 import pytest
 from vine import promise
 
-from case import ContextMock, Mock, mock, patch
 from celery import Celery, _state
 from celery import app as _app
 from celery import current_app, shared_task
 from celery.app import base as _appbase
 from celery.app import defaults
+from celery.backends.base import Backend
+from celery.contrib.testing.mocks import ContextMock
 from celery.exceptions import ImproperlyConfigured
-from celery.five import items, keys
 from celery.loaders.base import unconfigured
 from celery.platforms import pyimplementation
 from celery.utils.collections import DictAttribute
 from celery.utils.objects import Bunch
 from celery.utils.serialization import pickle
 from celery.utils.time import localize, timezone, to_utc
+from t.unit import conftest
 
 THIS_IS_A_KEY = 'this is a value'
 
 
-class ObjectConfig(object):
+class ObjectConfig:
     FOO = 1
     BAR = 2
 
@@ -38,7 +39,7 @@ object_config = ObjectConfig()
 dict_config = {'FOO': 10, 'BAR': 20}
 
 
-class ObjectConfig2(object):
+class ObjectConfig2:
     LEAVE_FOR_WORK = True
     MOMENT_TO_STOP = True
     CALL_ME_BACK = 123456789
@@ -112,9 +113,9 @@ class test_App:
     @patch('celery.security.setup_security')
     def test_setup_security(self, setup_security):
         self.app.setup_security(
-            {'json'}, 'key', 'cert', 'store', 'digest', 'serializer')
+            {'json'}, 'key', None, 'cert', 'store', 'digest', 'serializer')
         setup_security.assert_called_with(
-            {'json'}, 'key', 'cert', 'store', 'digest', 'serializer',
+            {'json'}, 'key', None, 'cert', 'store', 'digest', 'serializer',
             app=self.app)
 
     def test_task_autofinalize_disabled(self):
@@ -220,6 +221,13 @@ class test_App:
         self.app._using_v1_reduce = True
         assert loads(dumps(self.app))
 
+    def test_autodiscover_tasks_force_fixup_fallback(self):
+        self.app.loader.autodiscover_tasks = Mock()
+        self.app.autodiscover_tasks([], force=True)
+        self.app.loader.autodiscover_tasks.assert_called_with(
+            [], 'tasks',
+        )
+
     def test_autodiscover_tasks_force(self):
         self.app.loader.autodiscover_tasks = Mock()
         self.app.autodiscover_tasks(['proj.A', 'proj.B'], force=True)
@@ -266,6 +274,14 @@ class test_App:
         patching.setenv('CELERY_BROKER_URL', '')
         with self.Celery(broker='foo://baribaz') as app:
             assert app.conf.broker_url == 'foo://baribaz'
+
+    def test_pending_configuration_non_true__kwargs(self):
+        with self.Celery(task_create_missing_queues=False) as app:
+            assert app.conf.task_create_missing_queues is False
+
+    def test_pending_configuration__kwargs(self):
+        with self.Celery(foo='bar') as app:
+            assert app.conf.foo == 'bar'
 
     def test_pending_configuration__setattr(self):
         with self.Celery(broker='foo://bar') as app:
@@ -370,7 +386,7 @@ class test_App:
         with self.Celery(broker='foo://bar') as app:
             app.conf.worker_agent = 'foo:Bar'
             assert not app.configured
-            assert list(keys(app.conf))
+            assert list(app.conf.keys())
             assert app.configured
             assert 'worker_agent' in app.conf
             assert dict(app.conf)
@@ -496,6 +512,16 @@ class test_App:
         finally:
             _imports.MP_MAIN_FILE = None
 
+    def test_can_get_type_hints_for_tasks(self):
+        import typing
+
+        with self.Celery() as app:
+            @app.task
+            def foo(parameter: int) -> None:
+                pass
+
+            assert typing.get_type_hints(foo) == {'parameter': int, 'return': type(None)}
+
     def test_annotate_decorator(self):
         from celery.app.task import Task
 
@@ -555,26 +581,18 @@ class test_App:
         saved = pickle.dumps(self.app)
         assert len(saved) < 2048
         restored = pickle.loads(saved)
-        for key, value in items(changes):
+        for key, value in changes.items():
             assert restored.conf[key] == value
 
-    def test_worker_main(self):
-        from celery.bin import worker as worker_bin
+    @patch('celery.bin.celery.celery')
+    def test_worker_main(self, mocked_celery):
+        self.app.worker_main(argv=['worker', '--help'])
 
-        class worker(worker_bin.worker):
+        mocked_celery.main.assert_called_with(
+            args=['worker', '--help'], standalone_mode=False)
 
-            def execute_from_commandline(self, argv):
-                return argv
-
-        prev, worker_bin.worker = worker_bin.worker, worker
-        try:
-            ret = self.app.worker_main(argv=['--version'])
-            assert ret == ['--version']
-        finally:
-            worker_bin.worker = prev
-
-    def test_config_from_envvar(self):
-        os.environ['CELERYTEST_CONFIG_OBJECT'] = 't.unit.app.test_app'
+    def test_config_from_envvar(self, monkeypatch):
+        monkeypatch.setenv("CELERYTEST_CONFIG_OBJECT", 't.unit.app.test_app')
         self.app.config_from_envvar('CELERYTEST_CONFIG_OBJECT')
         assert self.app.conf.THIS_IS_A_KEY == 'this is a value'
 
@@ -601,7 +619,7 @@ class test_App:
 
     def test_config_from_object__compat(self):
 
-        class Config(object):
+        class Config:
             CELERY_ALWAYS_EAGER = 44
             CELERY_DEFAULT_DELIVERY_MODE = 30
             CELERY_TASK_PUBLISH_RETRY = False
@@ -614,7 +632,7 @@ class test_App:
 
     def test_config_from_object__supports_old_names(self):
 
-        class Config(object):
+        class Config:
             task_always_eager = 45
             task_default_delivery_mode = 301
 
@@ -627,7 +645,7 @@ class test_App:
 
     def test_config_from_object__namespace_uppercase(self):
 
-        class Config(object):
+        class Config:
             CELERY_TASK_ALWAYS_EAGER = 44
             CELERY_TASK_DEFAULT_DELIVERY_MODE = 301
 
@@ -636,7 +654,7 @@ class test_App:
 
     def test_config_from_object__namespace_lowercase(self):
 
-        class Config(object):
+        class Config:
             celery_task_always_eager = 44
             celery_task_default_delivery_mode = 301
 
@@ -645,7 +663,7 @@ class test_App:
 
     def test_config_from_object__mixing_new_and_old(self):
 
-        class Config(object):
+        class Config:
             task_always_eager = 44
             worker_agent = 'foo:Agent'
             worker_consumer = 'foo:Consumer'
@@ -659,7 +677,7 @@ class test_App:
 
     def test_config_from_object__mixing_old_and_new(self):
 
-        class Config(object):
+        class Config:
             CELERY_ALWAYS_EAGER = 46
             CELERYD_AGENT = 'foo:Agent'
             CELERYD_CONSUMER = 'foo:Consumer'
@@ -754,10 +772,10 @@ class test_App:
         assert self.app.conf['FOO'] == 10
         assert self.app.conf['BAR'] == 20
 
-    @patch('celery.bin.celery.CeleryCommand.execute_from_commandline')
-    def test_start(self, execute):
+    @patch('celery.bin.celery.celery')
+    def test_start(self, mocked_celery):
         self.app.start()
-        execute.assert_called()
+        mocked_celery.main.assert_called()
 
     @pytest.mark.parametrize('url,expected_fields', [
         ('pyamqp://', {
@@ -776,7 +794,7 @@ class test_App:
     ])
     def test_amqp_get_broker_info(self, url, expected_fields):
         info = self.app.connection(url).info()
-        for key, expected_value in items(expected_fields):
+        for key, expected_value in expected_fields.items():
             assert info[key] == expected_value
 
     def test_amqp_failover_strategy_selection(self):
@@ -898,10 +916,10 @@ class test_App:
         assert 'add1' in self.app.conf.beat_schedule
         assert 'add2' in self.app.conf.beat_schedule
 
-    def test_pool_no_multiprocessing(self):
-        with mock.mask_modules('multiprocessing.util'):
-            pool = self.app.pool
-            assert pool is self.app._pool
+    @pytest.mark.masked_modules('multiprocessing.util')
+    def test_pool_no_multiprocessing(self, mask_modules):
+        pool = self.app.pool
+        assert pool is self.app._pool
 
     def test_bugreport(self):
         assert self.app.bugreport()
@@ -921,7 +939,7 @@ class test_App:
 
     def test_send_task_sent_event(self):
 
-        class Dispatcher(object):
+        class Dispatcher:
             sent = []
 
             def publish(self, type, fields, *args, **kwargs):
@@ -977,6 +995,63 @@ class test_App:
         app = CustomCelery(set_as_current=False)
         assert isinstance(app.tasks, TaskRegistry)
 
+    def test_oid(self):
+        # Test that oid is global value.
+        oid1 = self.app.oid
+        oid2 = self.app.oid
+        uuid.UUID(oid1)
+        uuid.UUID(oid2)
+        assert oid1 == oid2
+
+    def test_global_oid(self):
+        # Test that oid is global value also within threads
+        main_oid = self.app.oid
+        uuid.UUID(main_oid)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(lambda: self.app.oid)
+        thread_oid = future.result()
+        uuid.UUID(thread_oid)
+        assert main_oid == thread_oid
+
+    def test_thread_oid(self):
+        # Test that thread_oid is global value in single thread.
+        oid1 = self.app.thread_oid
+        oid2 = self.app.thread_oid
+        uuid.UUID(oid1)
+        uuid.UUID(oid2)
+        assert oid1 == oid2
+
+    def test_backend(self):
+        # Test that app.bakend returns the same backend in single thread
+        backend1 = self.app.backend
+        backend2 = self.app.backend
+        assert isinstance(backend1, Backend)
+        assert isinstance(backend2, Backend)
+        assert backend1 is backend2
+
+    def test_thread_backend(self):
+        # Test that app.bakend returns the new backend for each thread
+        main_backend = self.app.backend
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(lambda: self.app.backend)
+        thread_backend = future.result()
+        assert isinstance(main_backend, Backend)
+        assert isinstance(thread_backend, Backend)
+        assert main_backend is not thread_backend
+
+    def test_thread_oid_is_local(self):
+        # Test that thread_oid is local to thread.
+        main_oid = self.app.thread_oid
+        uuid.UUID(main_oid)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(lambda: self.app.thread_oid)
+        thread_oid = future.result()
+        uuid.UUID(thread_oid)
+        assert main_oid != thread_oid
+
 
 class test_defaults:
 
@@ -1004,26 +1079,26 @@ class test_debugging_utils:
 class test_pyimplementation:
 
     def test_platform_python_implementation(self):
-        with mock.platform_pyimp(lambda: 'Xython'):
+        with conftest.platform_pyimp(lambda: 'Xython'):
             assert pyimplementation() == 'Xython'
 
     def test_platform_jython(self):
-        with mock.platform_pyimp():
-            with mock.sys_platform('java 1.6.51'):
+        with conftest.platform_pyimp():
+            with conftest.sys_platform('java 1.6.51'):
                 assert 'Jython' in pyimplementation()
 
     def test_platform_pypy(self):
-        with mock.platform_pyimp():
-            with mock.sys_platform('darwin'):
-                with mock.pypy_version((1, 4, 3)):
+        with conftest.platform_pyimp():
+            with conftest.sys_platform('darwin'):
+                with conftest.pypy_version((1, 4, 3)):
                     assert 'PyPy' in pyimplementation()
-                with mock.pypy_version((1, 4, 3, 'a4')):
+                with conftest.pypy_version((1, 4, 3, 'a4')):
                     assert 'PyPy' in pyimplementation()
 
     def test_platform_fallback(self):
-        with mock.platform_pyimp():
-            with mock.sys_platform('darwin'):
-                with mock.pypy_version():
+        with conftest.platform_pyimp():
+            with conftest.sys_platform('darwin'):
+                with conftest.pypy_version():
                     assert 'CPython' == pyimplementation()
 
 

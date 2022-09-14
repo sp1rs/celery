@@ -1,7 +1,12 @@
 ---
 name: Documentation Bug Report
 about: Is something wrong with our documentation?
+title: ''
+labels: 'Category: Documentation, Issue Type: Bug Report'
+assignees: ''
+
 ---
+
 <!--
 Please fill this template entirely and do not erase parts of it.
 We reserve the right to close without a response

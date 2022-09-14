@@ -19,8 +19,8 @@ Using Celery with Django
 
 .. note::
 
-    Celery 4.0 supports Django 1.8 and newer versions. Please use Celery 3.1
-    for versions older than Django 1.8.
+    Celery 5.0.x supports Django 1.11 LTS or newer versions. Please use Celery 4.4.x
+    for versions older than Django 1.11.
 
 To use Celery with your Django project you must first define
 an instance of the Celery library (called an "app")
@@ -54,15 +54,8 @@ for simple projects you may use a single contained module that defines
 both the app and tasks, like in the :ref:`tut-celery` tutorial.
 
 Let's break down what happens in the first module,
-first we import absolute imports from the future, so that our
-``celery.py`` module won't clash with the library:
-
-.. code-block:: python
-
-    from __future__ import absolute_import
-
-Then we set the default :envvar:`DJANGO_SETTINGS_MODULE` environment variable
-for the :program:`celery` command-line program:
+first, we set the default :envvar:`DJANGO_SETTINGS_MODULE` environment
+variable for the :program:`celery` command-line program:
 
 .. code-block:: python
 
@@ -88,13 +81,26 @@ from the Django settings; but you can also separate them if wanted.
 
     app.config_from_object('django.conf:settings', namespace='CELERY')
 
-The uppercase name-space means that all Celery configuration options
+The uppercase name-space means that all
+:ref:`Celery configuration options <configuration>`
 must be specified in uppercase instead of lowercase, and start with
 ``CELERY_``, so for example the :setting:`task_always_eager` setting
 becomes ``CELERY_TASK_ALWAYS_EAGER``, and the :setting:`broker_url`
 setting becomes ``CELERY_BROKER_URL``. This also applies to the
 workers settings, for instance, the :setting:`worker_concurrency`
 setting becomes ``CELERY_WORKER_CONCURRENCY``.
+
+For example, a Django project's configuration file might include:
+
+.. code-block:: python
+    :caption: settings.py
+
+    ...
+
+    # Celery Configuration Options
+    CELERY_TIMEZONE = "Australia/Tasmania"
+    CELERY_TASK_TRACK_STARTED = True
+    CELERY_TASK_TIME_LIMIT = 30 * 60
 
 You can pass the settings object directly instead, but using a string
 is better since then the worker doesn't have to serialize the object.
@@ -146,15 +152,6 @@ concrete app instance:
 
     You can find the full source code for the Django example project at:
     https://github.com/celery/celery/tree/master/examples/django/
-
-.. admonition:: Relative Imports
-
-    You have to be consistent in how you import the task module.
-    For example, if you have ``project.app`` in ``INSTALLED_APPS``, then you
-    must also import the tasks ``from project.app`` or else the names
-    of the tasks will end up being different.
-
-    See :ref:`task-naming-relative-imports`
 
 Extensions
 ==========
@@ -221,6 +218,9 @@ To use this with your project you need to follow these steps:
             }
         }
 
+    For additional configuration options, view the
+    :ref:`conf-result-backend` reference.
+
 
 ``django-celery-beat`` - Database-backed Periodic Tasks with Admin interface.
 -----------------------------------------------------------------------------
@@ -238,7 +238,7 @@ development it is useful to be able to start a worker instance by using the
 
 .. code-block:: console
 
-    $ celery -A proj worker -l info
+    $ celery -A proj worker -l INFO
 
 For a complete listing of the command-line options available,
 use the help command:
@@ -246,11 +246,6 @@ use the help command:
 .. code-block:: console
 
     $ celery help
-    
-Known Issues
-============
-CONN_MAX_AGE other than zero is known to cause issues according to `bug #4878 <https://github.com/celery/celery/issues/4878>`_. Until this is fixed, please set CONN_MAX_AGE to zero.
-
 
 Where to go from here
 =====================

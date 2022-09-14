@@ -1,46 +1,35 @@
-from __future__ import absolute_import, unicode_literals
-
 import json
 import pickle
 import sys
 from datetime import date, datetime, time, timedelta
+from unittest.mock import Mock
 
 import pytest
 import pytz
 from kombu import Queue
 
-from case import Mock, mock, skip
-from celery.utils.serialization import (STRTOBOOL_DEFAULT_TABLE,
-                                        UnpickleableExceptionWrapper,
-                                        ensure_serializable,
-                                        get_pickleable_etype, jsonify,
-                                        strtobool)
+from celery.utils.serialization import (STRTOBOOL_DEFAULT_TABLE, UnpickleableExceptionWrapper, ensure_serializable,
+                                        get_pickleable_etype, jsonify, strtobool)
 
 
 class test_AAPickle:
 
-    def test_no_cpickle(self):
+    @pytest.mark.masked_modules('cPickle')
+    def test_no_cpickle(self, mask_modules):
         prev = sys.modules.pop('celery.utils.serialization', None)
         try:
-            with mock.mask_modules('cPickle'):
-                from celery.utils.serialization import pickle
-                import pickle as orig_pickle
-                assert pickle.dumps is orig_pickle.dumps
+            import pickle as orig_pickle
+
+            from celery.utils.serialization import pickle
+            assert pickle.dumps is orig_pickle.dumps
         finally:
             sys.modules['celery.utils.serialization'] = prev
 
 
 class test_ensure_serializable:
 
-    @skip.unless_python3()
     def test_json_py3(self):
         expected = (1, "<class 'object'>")
-        actual = ensure_serializable([1, object], encoder=json.dumps)
-        assert expected == actual
-
-    @skip.if_python3()
-    def test_json_py2(self):
-        expected = (1, "<type 'object'>")
         actual = ensure_serializable([1, object], encoder=json.dumps)
         assert expected == actual
 
